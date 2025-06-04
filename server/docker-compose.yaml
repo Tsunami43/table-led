@@ -1,0 +1,46 @@
+services:
+  app:
+    build: .
+    environment:
+      - POSTGRES_DSN=postgresql://${DB_USER}:${DB_PASS}@postgres/${DB_NAME}
+    depends_on:
+      - postgres
+    volumes:
+      - .:/app
+    networks:
+      - network
+    ports:
+      - "3000:3000"
+    command: ["server"]
+
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASS}
+      - POSTGRES_DB=${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - network
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/certs:/etc/nginx/certs
+    depends_on:
+      - app
+    networks:
+      - network
+
+networks:
+  network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
