@@ -1,0 +1,18 @@
+[dependencies]
+esp-idf-sys = { version = "0.33", features = ["binstart"] }
+esp-idf-hal = "0.40"
+embedded-hal = "1.0.0"
+anyhow = "1.0"
+esp-idf-svc = "0.47"
+embedded-graphics = "0.8"
+ws = "0.9"              # Временный WebSocket (можно заменить)
+heapless = "0.8"
+
+# HTTP-клиент
+ureq = "2.9.1"          # lightweight http client (для embedded)
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[build-dependencies]
+embuild = "0.31"
+
