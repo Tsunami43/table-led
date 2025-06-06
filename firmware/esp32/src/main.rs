@@ -1,25 +1,37 @@
+mod wifi;
+mod http_client;
 mod auth;
-mod ws;
-mod model;
-mod display;
-mod input;
-mod storage;
-mod net;
+mod websocket;
+mod display_controller;
 
-use esp_idf_sys as _;
+use crate::auth::AuthManager;
+use crate::websocket::WsClient;
+use crate::display_controller::DisplayController;
+use esp_idf_svc::log::EspLogger;
+use smol::block_on;
 
-#[no_mangle]
-fn app_main() {
-    esp_idf_sys::link_patches();
+fn main() -> anyhow::Result<()> {
+    EspLogger::initialize_default();
 
-    println!("🚀 Загрузка устройства");
+    block_on(async {
+        // Подключаемся к Wi-Fi
+        wifi::connect("your_wifi_ssid", "your_wifi_password")?;
 
-    let creds = storage::load_credentials().unwrap();
-    let auth = auth::authenticate(&creds).expect("❌ Авторизация не прошла");
+        // Авторизация
+        let mut auth_manager = AuthManager::new();
+        auth_manager.authenticate("DEVICE-001", "SECRET-TOKEN").await?;
 
-    display::init().unwrap();
-    display::show_game_info(&auth.config);
+        // Инициализация табло
+        let mut display = DisplayController::new();
 
-    ws::start_ws_loop(&auth).expect("❌ WebSocket не работает");
+        // Подключение к WebSocket
+        let ws_url = format!("ws://yourserver:3000/ws/esp/{}", auth_manager.game_id.as_ref().unwrap());
+        let mut ws_client = WsClient::connect(&ws_url)?;
+
+        // Запуск основного цикла WebSocket
+        ws_client.run_event_loop(&mut display)?;
+
+        Ok(())
+    })
 }
 

@@ -1,37 +1,53 @@
-// src/auth.rs
-use crate::model::{AuthPayload, AuthResponse};
-use crate::net;
-use anyhow::Result;
+use serde::{Serialize, Deserialize};
+use crate::http_client::post_auth;
 
-pub fn authenticate(creds: &AuthPayload) -> Result<AuthResponse> {
-    let url = "http://192.168.0.100:3000/api/esp/auth";
-    net::post_json(url, creds)
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AuthRequest<'a> {
+    pub device_id: &'a str,
+    pub token: &'a str,
 }
 
-
-// src/ws.rs
-use crate::model::AuthResponse;
-use std::thread;
-use ws::{connect, Handler, Handshake, Message, Result as WsResult, Sender};
-
-pub fn start_ws_loop(auth: &AuthResponse) -> anyhow::Result<()> {
-    let url = format!(
-        "ws://192.168.0.100:3000/ws/esp/{}?token={}",
-        auth.config.game_id, auth.token
-    );
-
-    connect(url, |out| WsClient { out })?;
-    Ok(())
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MatchConfig {
+    pub game_id: String,
+    pub sport_type: String,
+    pub team_a: String,
+    pub team_b: String,
 }
 
-struct WsClient {
-    out: Sender,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AuthResponse {
+    pub ok: bool,
+    pub token: String,
+    pub config: MatchConfig,
 }
 
-impl Handler for WsClient {
-    fn on_message(&mut self, msg: Message) -> WsResult<()> {
-        println!("📡 WebSocket message: {}", msg);
-        // TODO: parse and call display::update_from_server()
-        Ok(())
+pub struct AuthManager {
+    pub jwt_token: Option<String>,
+    pub game_id: Option<String>,
+}
+
+impl AuthManager {
+    pub fn new() -> Self {
+        Self {
+            jwt_token: None,
+            game_id: None,
+        }
+    }
+
+    pub async fn authenticate(&mut self, device_id: &str, device_token: &str) -> anyhow::Result<()> {
+        let auth_req = AuthRequest {
+            device_id,
+            token: device_token,
+        };
+        let resp: AuthResponse = post_auth(&auth_req).await?;
+        if resp.ok {
+            self.jwt_token = Some(resp.token);
+            self.game_id = Some(resp.config.game_id);
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Auth failed"))
+        }
     }
 }
+
