@@ -1,4 +1,5 @@
 use actix::{Actor, StreamHandler};
+use actix_web::{web, HttpRequest, HttpResponse, Error};
 use actix_web_actors::ws;
 
 pub struct WsSession;
@@ -15,3 +16,11 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession {
         }
     }
 }
+
+pub async fn ws_index(
+    req: HttpRequest,
+    stream: web::Payload,
+) -> Result<HttpResponse, Error> {
+    ws::start(WsSession {}, &req, stream)
+}
+

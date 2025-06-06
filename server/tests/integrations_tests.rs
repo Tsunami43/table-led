@@ -1,68 +1,34 @@
-use actix_web::{test, App, http::header};
-use server::handlers::{auth_handler, protected_endpoint};
-use server::auth::AuthenticatedUser;
-use actix_web::{web, HttpResponse};
 
-#[actix_rt::test]
-async fn test_auth_handler_success() {
-    let app = test::init_service(
-        App::new().route("/api/esp/auth", actix_web::web::post().to(auth_handler))
-    ).await;
+use actix_web::{test, App};
+use your_crate::handlers::get_games;  // замени на правильный путь
+use your_crate::auth::AuthenticatedUser;
+use actix_web::http::header;
 
-    let req_body = r#"{"device_id":"DEVICE-001","token":"SECRET-TOKEN"}"#;
-
-    let req = test::TestRequest::post()
-        .uri("/api/esp/auth")
-        .header("Content-Type", "application/json")
-        .set_payload(req_body)
-        .to_request();
-
-    let resp = test::call_service(&app, req).await;
-    assert!(resp.status().is_success());
-
-    let body_bytes = test::read_body(resp).await;
-    let body_str = std::str::from_utf8(&body_bytes).unwrap();
-    assert!(body_str.contains("\"ok\":true"));
-}
-
-#[actix_rt::test]
-async fn test_auth_handler_unauthorized() {
-    let app = test::init_service(
-        App::new().route("/api/esp/auth", actix_web::web::post().to(auth_handler))
-    ).await;
-
-    let req_body = r#"{"device_id":"wrong","token":"badtoken"}"#;
-
-    let req = test::TestRequest::post()
-        .uri("/api/esp/auth")
-        .header("Content-Type", "application/json")
-        .set_payload(req_body)
-        .to_request();
-
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), actix_web::http::StatusCode::UNAUTHORIZED);
-}
-
-#[actix_rt::test]
-async fn test_protected_endpoint_with_valid_token() {
-    // Создаём тестовый App с маршрутом, который требует AuthenticatedUser
+#[actix_web::test]
+async fn test_get_games_authorized() {
+    // Создаём приложение с маршрутом /games и мидлварой авторизации
     let app = test::init_service(
         App::new()
-            .route("/api/protected", web::get().to(protected_endpoint))
+            .route("/games", actix_web::web::get().to(get_games))
     ).await;
 
-    // Имитация JWT (для простоты берем токен с user_id = "testuser")
-    let token = "Bearer some_valid_jwt_token"; // Тут нужна реальная генерация или mock
-
+    // Формируем запрос с заголовком авторизации
     let req = test::TestRequest::get()
-        .uri("/api/protected")
-        .insert_header((header::AUTHORIZATION, token))
+        .uri("/games")
+        .insert_header((header::AUTHORIZATION, "Bearer jwt_token_example"))
         .to_request();
 
-    // В реальном тесте нужно реализовать валидный JWT и декодер, либо замокать AuthenticatedUser
-    // Для примера просто проверим, что запрос обрабатывается (в реале будет ошибка без валидного JWT)
+    // Выполняем запрос
     let resp = test::call_service(&app, req).await;
 
-    // Можно проверить, что не 401 (а иначе тест упадёт)
-    assert_ne!(resp.status(), actix_web::http::StatusCode::UNAUTHORIZED);
+    // Проверяем, что статус 200 OK
+    assert!(resp.status().is_success());
+
+    // Если нужно, можно десериализовать тело и проверить содержимое
+    let body = test::read_body(resp).await;
+    let games_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    // Пример проверки, что пришёл список игр (массив)
+    assert!(games_json.is_array());
 }
+

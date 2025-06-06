@@ -1,37 +1,46 @@
-CREATE TABLE IF NOT EXISTS games (
+-- Создание таблицы пользователей
+CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    team_home VARCHAR NOT NULL,
-    team_away VARCHAR NOT NULL,
-    sport_type VARCHAR NOT NULL,
-    timer INT DEFAULT 0,
-    score_home INT DEFAULT 0,
-    score_away INT DEFAULT 0,
-    status VARCHAR DEFAULT 'scheduled'
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('admin', 'referee')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS events (
+-- Таблица матчей
+CREATE TABLE games (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sport_type TEXT NOT NULL,
+    team_a TEXT NOT NULL,
+    team_b TEXT NOT NULL,
+    score_a INTEGER DEFAULT 0,
+    score_b INTEGER DEFAULT 0,
+    status TEXT NOT NULL CHECK (status IN ('scheduled', 'live', 'finished')),
+    start_time TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Таблица событий в игре (голы, фолы и пр.)
+CREATE TABLE events (
     id SERIAL PRIMARY KEY,
-    game_id INT REFERENCES games(id),
-    event_type VARCHAR NOT NULL,
-    timestamp TIMESTAMP NOT NULL DEFAULT now(),
+    game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    event_type TEXT NOT NULL,
     description TEXT
 );
 
-CREATE TABLE IF NOT EXISTS users (
+-- Таблица устройств (табло)
+CREATE TABLE devices (
     id SERIAL PRIMARY KEY,
-    username VARCHAR UNIQUE NOT NULL,
-    password_hash VARCHAR NOT NULL,
-    role VARCHAR NOT NULL
+    device_id TEXT NOT NULL UNIQUE,
+    token TEXT NOT NULL,
+    game_id UUID REFERENCES games(id) ON DELETE SET NULL,
+    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    active BOOLEAN DEFAULT TRUE
 );
 
-CREATE TABLE IF NOT EXISTS devices (
-    id SERIAL PRIMARY KEY,
-    device_name VARCHAR NOT NULL,
-    connection_params JSONB NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS settings (
-    id SERIAL PRIMARY KEY,
-    param_key VARCHAR UNIQUE NOT NULL,
-    param_value VARCHAR NOT NULL
+-- Таблица системных настроек
+CREATE TABLE settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
 );
